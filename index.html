@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Финансовый отчёт — редактируемый</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#0a0806; --bg-2:#12100b;
+    --panel:#161209; --panel-2:#100d08;
+    --line: rgba(202,160,77,.22); --line-soft: rgba(202,160,77,.12);
+    --gold:#caa04d; --gold-light:#f1dd9d; --gold-deep:#8a6a24;
+    --text:#f3ecda; --text-dim:#a5967c; --text-faint:#6d6252;
+    --up:#8fbf8a; --down:#c67361; --radius:14px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(ellipse 900px 500px at 12% -10%, rgba(202,160,77,.16), transparent 60%),
+      radial-gradient(ellipse 700px 500px at 100% 0%, rgba(202,160,77,.10), transparent 55%),
+      linear-gradient(180deg, var(--bg-2), var(--bg) 18%);
+    color:var(--text); font-family:'Inter',sans-serif; -webkit-font-smoothing:antialiased;
+    padding:32px 18px 80px;
+  }
+  .wrap{max-width:1180px;margin:0 auto;}
+
+  header{display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:16px;
+    padding-bottom:20px;margin-bottom:16px;border-bottom:1px solid var(--line-soft);}
+  .brand-eyebrow{font-size:12px;letter-spacing:.14em;color:var(--gold);font-weight:600;margin-bottom:6px;}
+  h1{font-family:'Playfair Display',serif;font-weight:700;font-size:clamp(26px,4vw,38px);margin:0;
+    background:linear-gradient(100deg,var(--gold-light),var(--gold) 45%,#8a6a24 90%);
+    -webkit-background-clip:text;background-clip:text;color:transparent;}
+  .period{color:var(--text-dim);font-size:13.5px;margin-top:6px;}
+
+  .toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px;}
+  .tbtn{padding:8px 14px;border-radius:9px;font-size:12.5px;font-weight:600;cursor:pointer;
+    border:1px solid var(--line);color:var(--text-dim);background:transparent;font-family:inherit;transition:.15s;}
+  .tbtn:hover{color:var(--gold-light);border-color:var(--gold);}
+  .tbtn.danger:hover{color:var(--down);border-color:var(--down);}
+  .save-flag{font-size:11.5px;color:var(--text-faint);align-self:center;margin-left:4px;transition:opacity .3s;}
+  .save-flag.show{color:var(--up);}
+  #importFile{display:none;}
+
+  nav.tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:22px;}
+  .tab-btn{
+    padding:9px 16px;border-radius:999px;font-size:13px;font-weight:600;cursor:pointer;
+    border:1px solid var(--line);color:var(--text-dim);background:transparent;font-family:inherit;
+    transition:.15s;
+  }
+  .tab-btn.active{color:#241a06;background:linear-gradient(120deg,var(--gold-light),var(--gold));border-color:transparent;}
+  .tab-panel{display:none;}
+  .tab-panel.active{display:block;animation:fadein .25s ease;}
+  @keyframes fadein{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+  .stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:16px;}
+  @media(max-width:880px){.stat-row{grid-template-columns:repeat(2,1fr);}}
+  .card{background:linear-gradient(155deg,var(--panel),var(--panel-2));border:1px solid var(--line);
+    border-radius:var(--radius);padding:18px 20px;position:relative;}
+  .card::before{content:"";position:absolute;inset:0;border-radius:var(--radius);padding:1px;
+    background:linear-gradient(155deg,rgba(202,160,77,.5),transparent 40%);
+    -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+    -webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none;}
+  .card .label{font-size:11px;color:var(--text-dim);letter-spacing:.07em;font-weight:600;margin-bottom:10px;}
+  .card .big{font-family:'Playfair Display',serif;font-weight:700;font-size:26px;color:var(--gold-light);line-height:1.1;}
+  .card .sub{font-size:12px;color:var(--text-faint);margin-top:6px;}
+
+  .strip{display:flex;gap:22px;flex-wrap:wrap;background:var(--panel);border:1px solid var(--line-soft);
+    border-radius:var(--radius);padding:14px 20px;margin-bottom:24px;font-size:13px;color:var(--text-dim);}
+  .strip b{color:var(--gold-light);font-weight:600;}
+
+  .split{display:grid;grid-template-columns:1.3fr 1fr;gap:16px;align-items:start;margin-bottom:24px;}
+  @media(max-width:880px){.split{grid-template-columns:1fr;}}
+  .panel{background:linear-gradient(160deg,var(--panel),var(--panel-2));border:1px solid var(--line);
+    border-radius:var(--radius);padding:20px;}
+  .panel h2{font-family:'Playfair Display',serif;font-size:16.5px;margin:0 0 14px;color:var(--gold-light);font-weight:600;}
+  .panel h2 .note{font-family:'Inter',sans-serif;font-size:11px;color:var(--text-faint);font-weight:500;margin-left:8px;}
+
+  .comp-bar{height:26px;border-radius:8px;overflow:hidden;display:flex;margin-bottom:10px;background:rgba(255,255,255,.04);}
+  .comp-seg{height:100%;}
+  .legend{display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:var(--text-dim);}
+  .legend span{display:inline-flex;align-items:center;gap:6px;}
+  .dot{width:9px;height:9px;border-radius:3px;display:inline-block;}
+
+  .chart-box{height:220px;}
+
+  .savings-item{margin-bottom:14px;}
+  .savings-item:last-child{margin-bottom:0;}
+  .savings-item .k{font-size:11px;color:var(--text-dim);letter-spacing:.05em;margin-bottom:5px;}
+  .savings-item .v{font-family:'Playfair Display',serif;font-size:19px;color:var(--gold-light);font-weight:700;}
+  .bar-track{height:8px;border-radius:99px;background:rgba(255,255,255,.06);margin-top:9px;overflow:hidden;}
+  .bar-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,var(--gold-deep),var(--gold-light));transition:width .3s;}
+
+  .field-row{display:flex;align-items:center;gap:10px;}
+  .field-row .inp-dollar{max-width:160px;}
+
+  input[type="number"], input[type="text"], textarea{
+    background:rgba(255,255,255,.04); border:1px solid var(--line-soft); border-radius:7px;
+    color:var(--gold-light); font-family:'Inter',sans-serif; font-size:13px; padding:6px 9px;
+    width:100%; transition:.15s;
+  }
+  input[type="number"]:focus, input[type="text"]:focus, textarea:focus{
+    outline:none; border-color:var(--gold); background:rgba(202,160,77,.08);
+  }
+  textarea{resize:vertical; min-height:44px; font-size:12.3px; color:var(--text-dim); line-height:1.5;}
+
+  table{width:100%;border-collapse:collapse;font-size:12.5px;}
+  th{text-align:right;font-weight:600;color:var(--text-dim);font-size:10.5px;letter-spacing:.04em;
+    padding:0 6px 9px;border-bottom:1px solid var(--line-soft);}
+  th:first-child,td:first-child{text-align:left;}
+  td{padding:6px 6px;text-align:right;border-bottom:1px solid rgba(255,255,255,.03);color:var(--text);}
+  tr.zero td{color:var(--text-faint);}
+  tr.best{background:rgba(202,160,77,.09);}
+  tr.total td{border-top:1px solid var(--line);border-bottom:none;font-weight:700;color:var(--gold-light);padding-top:9px;}
+
+  .year-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px;}
+  @media(max-width:880px){.year-summary{grid-template-columns:repeat(2,1fr);}}
+
+  .month-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;}
+  @media(max-width:980px){.month-grid{grid-template-columns:repeat(2,1fr);}}
+  @media(max-width:620px){.month-grid{grid-template-columns:1fr;}}
+  .month-card{background:linear-gradient(160deg,var(--panel),var(--panel-2));border:1px solid var(--line);
+    border-radius:12px;padding:16px;}
+  .mc-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px;}
+  .mc-name{font-family:'Playfair Display',serif;font-weight:700;font-size:15px;color:var(--gold-light);}
+  .mc-margin{font-size:11px;color:var(--text-dim);}
+  .mc-profit{font-size:20px;font-weight:700;font-family:'Playfair Display',serif;margin-bottom:2px;color:var(--text-dim);}
+  .mc-profit.pos{color:var(--up);}
+  .mc-profit.neg{color:var(--down);}
+  .mc-income{font-size:11.5px;color:var(--text-faint);margin-bottom:10px;}
+
+  .mc-divider{border-top:1px solid var(--line-soft);margin:10px 0;}
+  .mc-fields{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:4px;}
+  .mc-field label{display:block;font-size:10px;color:var(--text-faint);letter-spacing:.03em;margin-bottom:3px;}
+
+  .days-toggle{background:none;border:none;color:var(--gold);font-size:11.5px;font-weight:600;cursor:pointer;
+    padding:8px 0 2px;font-family:inherit;display:flex;align-items:center;gap:5px;}
+  .days-toggle .arrow{transition:transform .2s;display:inline-block;}
+  .days-toggle.open .arrow{transform:rotate(90deg);}
+  .days-grid{display:none;grid-template-columns:repeat(7,1fr);gap:5px;margin-top:8px;}
+  .days-grid.open{display:grid;}
+  .day-cell{text-align:center;}
+  .day-cell .dn{font-size:8.5px;color:var(--text-faint);margin-bottom:2px;}
+  .day-cell input{padding:4px 2px;text-align:center;font-size:10.5px;}
+  .days-sum{font-size:11px;color:var(--text-dim);margin-top:8px;}
+
+  .note-wrap{margin-top:10px;}
+  .note-wrap label{display:block;font-size:10px;color:var(--text-faint);letter-spacing:.03em;margin-bottom:4px;}
+
+  footer{margin-top:30px;text-align:center;font-size:11px;color:var(--text-faint);}
+  footer a{color:var(--text-dim);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div>
+      <div class="brand-eyebrow">ЛИЧНЫЙ P&amp;L · АРБИТРАЖ ТРАФИКА</div>
+      <h1>Финансовый отчёт</h1>
+      <div class="period">Ноябрь 2025 — Декабрь 2029 · редактируемая версия</div>
+    </div>
+  </header>
+
+  <div class="toolbar">
+    <button class="tbtn" id="btnExport">Скачать резервную копию (JSON)</button>
+    <button class="tbtn" id="btnImport">Загрузить копию</button>
+    <input type="file" id="importFile" accept="application/json">
+    <button class="tbtn danger" id="btnReset">Сбросить к исходным данным</button>
+    <span class="save-flag" id="saveFlag">Все изменения сохраняются в этом браузере автоматически</span>
+  </div>
+
+  <nav class="tabs" id="tabsNav">
+    <button class="tab-btn active" data-tab="main">Главная</button>
+    <button class="tab-btn" data-tab="y2025">2025</button>
+    <button class="tab-btn" data-tab="y2026">2026</button>
+    <button class="tab-btn" data-tab="y2027">2027</button>
+    <button class="tab-btn" data-tab="y2028">2028</button>
+    <button class="tab-btn" data-tab="y2029">2029</button>
+  </nav>
+
+  <!-- ============ ГЛАВНАЯ ============ -->
+  <section class="tab-panel active" id="tab-main">
+    <div class="stat-row" id="mainStatRow"></div>
+    <div class="strip" id="mainStrip"></div>
+
+    <div class="split">
+      <div class="panel">
+        <h2>Структура дохода и расходов<span class="note">за весь период 2025—2029</span></h2>
+        <div class="comp-bar" id="compBar"></div>
+        <div class="legend" id="compLegend"></div>
+      </div>
+      <div class="panel">
+        <h2>Накопления<span class="note">редактируемое поле</span></h2>
+        <div class="savings-item">
+          <div class="k">НАКОПЛЕНО, $</div>
+          <input type="number" step="0.01" id="savingsCurrent">
+        </div>
+        <div class="savings-item">
+          <div class="k">ЦЕЛЬ НАКОПЛЕНИЙ, $</div>
+          <input type="number" step="0.01" id="savingsGoal">
+          <div class="bar-track"><div class="bar-fill" id="savingsBar" style="width:0%"></div></div>
+          <div class="sub" id="savingsPct" style="margin-top:6px;font-size:11.5px;color:var(--text-faint);"></div>
+        </div>
+        <div class="savings-item"><div class="k">ОСТАЛОСЬ ДО ЦЕЛИ</div><div class="v" id="savingsLeft">—</div></div>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-bottom:16px;">
+      <h2>Итоги по годам</h2>
+      <table>
+        <thead><tr><th>Год</th><th>Доход</th><th>Расходы</th><th>Чистая прибыль</th><th>Маржа</th></tr></thead>
+        <tbody id="tableYears"></tbody>
+      </table>
+    </div>
+
+    <div class="panel" style="margin-bottom:10px;">
+      <h2>Динамика чистой прибыли<span class="note">по месяцам, 2025—2029</span></h2>
+      <div class="chart-box"><canvas id="profitChart"></canvas></div>
+    </div>
+  </section>
+
+  <!-- ============ YEAR TABS (filled by JS) ============ -->
+  <section class="tab-panel" id="tab-y2025"><div class="year-summary" id="sum-2025"></div><div class="month-grid" id="months-2025"></div></section>
+  <section class="tab-panel" id="tab-y2026"><div class="year-summary" id="sum-2026"></div><div class="month-grid" id="months-2026"></div></section>
+  <section class="tab-panel" id="tab-y2027"><div class="year-summary" id="sum-2027"></div><div class="month-grid" id="months-2027"></div></section>
+  <section class="tab-panel" id="tab-y2028"><div class="year-summary" id="sum-2028"></div><div class="month-grid" id="months-2028"></div></section>
+  <section class="tab-panel" id="tab-y2029"><div class="year-summary" id="sum-2029"></div><div class="month-grid" id="months-2029"></div></section>
+
+  <footer>Данные хранятся локально в этом браузере (localStorage). Делайте резервную копию через кнопку выше, чтобы не потерять данные и перенести их на другое устройство.</footer>
+</div>
+<script>
+/* ======================= ДАННЫЕ ======================= */
+const STORAGE_KEY = 'finReport_v1';
+const SEED = {"years":{"2025":{"months":{"11":{"salary":303.9,"trading":0,"ads":0,"tech":0,"note":"Первые связки не сработали, но отказ от неэффективных партнёрок в конце месяца выправил ситуацию.","days":{"28":25.3,"29":37.95,"30":50.63}},"12":{"salary":515.9,"trading":300,"ads":155,"tech":0,"note":"Масштабировал ноябрьскую стратегию — она дала кратный рост. Лучший месяц за весь период. Отдельно сработал вход в крипто-трейдинг (+300 $).","days":{"1":126.56,"2":75.93,"3":37.97,"4":7.59,"5":32.91,"6":25.32,"7":151.9,"8":101.27,"9":88.61,"10":68.35,"11":103.8,"12":169.62,"13":48.1,"14":15.19,"15":113.92,"16":156.96,"17":103.8,"18":73.42,"19":164.56,"20":118.99,"21":212.66,"22":268.35,"23":151.9,"24":134.18,"25":118.99,"26":274.68,"27":267.09,"28":334.17,"29":247.09,"30":169.62,"31":244.05}}}},"2026":{"months":{"1":{"salary":575.8,"trading":-1200,"ads":200,"tech":107,"note":"Основная стратегия держалась стабильно, но слишком большая позиция в крипте на фоне резкого падения рынка принесла убыток −1200 $. Трейдинг закрыл.","days":{"1":164.55,"2":60.75,"3":175.51,"4":96.72,"5":289.55,"6":156.05,"7":95.0,"8":105.31,"9":119.79,"10":85.07,"11":103.6,"12":163.58,"13":12.33,"14":82.2,"15":200.1,"16":368.5,"17":87.8,"18":198.7,"19":155.0,"20":155.4,"21":85.08,"22":83.63,"23":130.75,"24":118.6,"25":144.3,"26":45.5,"27":29.1,"28":48.1,"29":44.3,"30":196.2,"31":346.9}},"2":{"salary":583,"trading":60,"ads":200,"tech":7.5,"note":"Второй результат за всё время наблюдений — сразу после того, как закрыл убыточные крипто-направления.","days":{"1":98.1,"2":3.0,"3":48.6,"4":63.2,"5":36.0,"6":219.75,"7":54.1,"8":69.6,"9":175.2,"10":54.7,"11":193.39,"12":88.8,"13":195.1,"14":72.0,"15":112.08,"16":211.4,"17":309.47,"18":431.21,"19":105.68,"20":133.37,"21":152.58,"22":223.87,"23":108.85,"24":98.15,"25":111.6,"26":243.55,"27":142.19,"28":267.84}},"3":{"salary":0,"trading":0,"ads":200,"tech":30,"note":"Хороший потенциал в начале месяца перечеркнули отпуск и технические сбои. Оклад в этот месяц обнулился.","days":{"1":179.44,"2":203.44,"3":283.97,"4":255.18,"5":151.69,"6":143.63,"7":44.94,"8":62.5,"9":137.2,"10":24.0,"11":2.0,"12":2.0,"13":2.0,"14":21.88,"15":76.49,"16":14.56,"17":2.91,"18":7.29,"19":7.29,"20":2.43,"21":36.47,"22":4.86,"23":53.01,"24":19.45,"25":43.77,"26":4.86,"27":157.97,"28":79.23,"29":49.33,"30":132.36,"31":188.25}},"4":{"salary":554.4,"trading":0,"ads":200,"tech":0,"note":"Постепенно восстановился после мартовского простоя — показатели вернулись на нужный уровень.","days":{"1":64.25,"2":73.75,"3":293.25,"4":83.3,"5":35.95,"6":157.11,"7":63.26,"8":25.46,"9":2.0,"10":44.0,"11":2.0,"12":2.0,"13":2.0,"14":105.9,"15":2.0,"16":6.5,"17":92.0,"18":156.2,"19":222.4,"20":198.0,"21":106.7,"22":148.3,"23":3.0,"24":3.0,"25":130.0,"26":136.0,"27":100.0,"28":38.0,"29":100.0,"30":48.0}},"5":{"salary":742,"trading":0,"ads":400,"tech":390,"note":"Смена рабочего места ограничила производительность, но высокий оклад (742 $) и собственные усилия удержали маржу.","days":{"1":116.0,"2":100.0,"3":161.4,"4":100.0,"5":59.7,"6":16.8,"7":29.0,"8":29.0,"9":29.0,"10":29.0,"11":19.4,"12":100.0,"13":109.0,"14":123.0,"15":81.88,"16":44.0,"17":50.0,"18":56.38,"19":100.0,"20":380.0,"21":193.0,"22":45.0,"23":47.5,"24":119.0,"25":61.0,"26":175.77,"27":130.0,"28":168.38,"29":66.0,"30":30.3,"31":134.2}},"6":{"salary":657.2,"trading":0,"ads":200,"tech":0,"note":"Технические сбои тянулись до 7 июля, и работать было почти невозможно. Худший месяц периода.","days":{"1":168.0,"2":146.93,"3":66.0,"4":30.3,"5":53.0,"6":53.0,"7":23.7,"8":1.0,"9":1.0,"10":17.3,"11":8.6,"12":1.0,"13":6.5,"14":1.0,"15":1.0,"16":1.0,"17":1.0,"18":30.3,"19":36.6,"20":1.0,"21":6.5,"22":17.3,"23":1.0,"24":1.0,"25":1.0,"26":1.0,"27":43.1,"28":54.39,"29":19.5,"30":12.1}},"7":{"salary":770,"trading":0,"ads":200,"tech":10,"note":"Устранил технические ограничения, и ключевые показатели вернулись в обычный диапазон.","days":{"1":4.2,"2":6.5,"3":1.0,"4":6.5,"5":85.5,"6":103.3,"7":182.2,"8":36.1,"9":30.3,"10":59.4,"11":1.0,"12":23.8,"13":59.5,"14":54.6,"15":77.59,"16":134.7,"17":179.4,"18":46.55,"19":47.0,"20":34.0,"21":99.46,"22":119.8,"23":130.08,"24":193.74,"25":166.61,"26":115.87,"27":116.32,"28":49.2,"29":114.48,"30":91.31,"31":80.8}},"8":{"salary":657.44,"trading":0,"ads":200,"tech":68.8,"note":"Технические проблемы удалось решить, и результаты вернулись на уровень зимних пиков — фактически возврат к докризисной эффективности.","days":{"1":98.62,"2":72.0,"3":114.0,"4":213.84,"5":136.8,"6":160.8,"7":124.96,"8":101.8,"9":166.8,"10":135.3,"11":82.8,"12":141.5,"13":135.6,"14":98.6,"15":68.4,"16":231.76,"17":201.6,"18":110.99,"19":49.2,"20":107.04,"21":124.8,"22":190.32,"23":162.24,"24":121.4,"25":124.8,"26":96.48,"27":83.4,"28":171.6,"29":96.0,"30":62.4,"31":44.4}},"9":{"salary":0,"trading":0,"ads":0,"tech":0,"note":"","days":{"1":242.4,"2":72.48,"3":103.2,"4":46.8}},"10":{"salary":0,"trading":0,"ads":0,"tech":0,"note":"","days":{}},"11":{"salary":0,"trading":0,"ads":0,"tech":0,"note":"","days":{}},"12":{"salary":0,"trading":0,"ads":0,"tech":0,"note":"","days":{}}}},"2027":{"months":{"1":{"salary":0,"trading":0,"ads":0,"tech":0,"note":"","days":{}},"2":{"salary":0,"trading":0,"ads":0,"tech":0,"note":"","days":{}},"3":{"salary":0,"trading":0,"ads":0,"tech":0,"note":"","days":{}},"4":{"salary":0,"trading":0,"ads":0,"tech":0,"note":"","days":{}},"5":{"salary":0,"trading":0,"ads":0,"tech":0,"note":"","days":{}},"6":{"salary":0,"trading":0,"ads":0,"tech":0,"note":"","days":{}},"7":{"salary":0,"trading":0,"ads":0,"tech":0,"note":"","days":{}},"8":{"salary":0,"trading":0,"ads":0,"tech":0,"note":"","days":{}},"9":{"salary":0,"trading":0,"ads":0,"tech":0,"note":"","days":{}},"10":{"salary":0,"trading":0,"ads":0,"tech":0,"note":"","days":{}},"11":{"salary":0,"trading":0,"ads":0,"tech":0,"note":"","days":{}},"12":{"salary":0,"trading":0,"ads":0,"tech":0,"note":"","days":{}}}},"2028":{"months":{"1":{"salary":0,"trading":0,"ads":0,"tech":0,"note":"","days":{}},"2":{"salary":0,"trading":0,"ads":0,"tech":0,"note":"","days":{}},"3":{"salary":0,"trading":0,"ads":0,"tech":0,"note":"","days":{}},"4":{"salary":0,"trading":0,"ads":0,"tech":0,"note":"","days":{}},"5":{"salary":0,"trading":0,"ads":0,"tech":0,"note":"","days":{}},"6":{"salary":0,"trading":0,"ads":0,"tech":0,"note":"","days":{}},"7":{"salary":0,"trading":0,"ads":0,"tech":0,"note":"","days":{}},"8":{"salary":0,"trading":0,"ads":0,"tech":0,"note":"","days":{}},"9":{"salary":0,"trading":0,"ads":0,"tech":0,"note":"","days":{}},"10":{"salary":0,"trading":0,"ads":0,"tech":0,"note":"","days":{}},"11":{"salary":0,"trading":0,"ads":0,"tech":0,"note":"","days":{}},"12":{"salary":0,"trading":0,"ads":0,"tech":0,"note":"","days":{}}}},"2029":{"months":{"1":{"salary":0,"trading":0,"ads":0,"tech":0,"note":"","days":{}},"2":{"salary":0,"trading":0,"ads":0,"tech":0,"note":"","days":{}},"3":{"salary":0,"trading":0,"ads":0,"tech":0,"note":"","days":{}},"4":{"salary":0,"trading":0,"ads":0,"tech":0,"note":"","days":{}},"5":{"salary":0,"trading":0,"ads":0,"tech":0,"note":"","days":{}},"6":{"salary":0,"trading":0,"ads":0,"tech":0,"note":"","days":{}},"7":{"salary":0,"trading":0,"ads":0,"tech":0,"note":"","days":{}},"8":{"salary":0,"trading":0,"ads":0,"tech":0,"note":"","days":{}},"9":{"salary":0,"trading":0,"ads":0,"tech":0,"note":"","days":{}},"10":{"salary":0,"trading":0,"ads":0,"tech":0,"note":"","days":{}},"11":{"salary":0,"trading":0,"ads":0,"tech":0,"note":"","days":{}},"12":{"salary":0,"trading":0,"ads":0,"tech":0,"note":"","days":{}}}}},"savings":{"current":18550,"goal":100000}};
+
+const YEARS = [2025,2026,2027,2028,2029];
+const YEAR_MONTHS = {
+  2025:[11,12],
+  2026:[1,2,3,4,5,6,7,8,9,10,11,12],
+  2027:[1,2,3,4,5,6,7,8,9,10,11,12],
+  2028:[1,2,3,4,5,6,7,8,9,10,11,12],
+  2029:[1,2,3,4,5,6,7,8,9,10,11,12],
+};
+const MONTH_NAMES = ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
+const DOW = ["Пн","Вт","Ср","Чт","Пт","Сб","Вс"];
+
+function defaultMonth(){ return {salary:0,trading:0,ads:0,tech:0,note:"",days:{}}; }
+
+function loadState(){
+  let raw = null;
+  try{ raw = localStorage.getItem(STORAGE_KEY); }catch(e){}
+  let state;
+  if(raw){
+    try{ state = JSON.parse(raw); }catch(e){ state = null; }
+  }
+  if(!state){ state = JSON.parse(JSON.stringify(SEED)); }
+  // make sure structure is complete (in case of older saved versions / missing months)
+  if(!state.savings) state.savings = {current:0, goal:0};
+  if(!state.years) state.years = {};
+  YEARS.forEach(y=>{
+    if(!state.years[y]) state.years[y] = {months:{}};
+    YEAR_MONTHS[y].forEach(m=>{
+      if(!state.years[y].months[m]) state.years[y].months[m] = defaultMonth();
+      const mo = state.years[y].months[m];
+      if(mo.salary===undefined) mo.salary=0;
+      if(mo.trading===undefined) mo.trading=0;
+      if(mo.ads===undefined) mo.ads=0;
+      if(mo.tech===undefined) mo.tech=0;
+      if(mo.note===undefined) mo.note="";
+      if(!mo.days) mo.days={};
+    });
+  });
+  return state;
+}
+
+let STATE = loadState();
+let saveTimer = null;
+function saveState(){
+  try{
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(STATE));
+    const flag = document.getElementById('saveFlag');
+    flag.textContent = 'Сохранено ✓';
+    flag.classList.add('show');
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(()=>{
+      flag.textContent = 'Все изменения сохраняются в этом браузере автоматически';
+      flag.classList.remove('show');
+    }, 1400);
+  }catch(e){
+    console.error('save failed', e);
+  }
+}
+
+function daysInMonth(year, month){ return new Date(year, month, 0).getDate(); }
+function fmt(n){ if(n===null||n===undefined||isNaN(n)) return "—"; const s = n<0?"-$":"$"; return s+Math.round(Math.abs(n)).toLocaleString('ru-RU'); }
+function pct(n){ if(n===null||n===undefined||isNaN(n)) return "—"; return (n*100).toFixed(1).replace('.',',')+"%"; }
+function num(v){ const n = parseFloat(v); return isNaN(n)?0:n; }
+
+function getMonth(year, month){ return STATE.years[year].months[month]; }
+
+function computeMonth(year, month){
+  const mo = getMonth(year, month);
+  let deposits = 0;
+  Object.values(mo.days).forEach(v=>{ deposits += num(v); });
+  const salary = num(mo.salary), trading = num(mo.trading), ads = num(mo.ads), tech = num(mo.tech);
+  const income = salary + trading + deposits;
+  const expenses = ads + tech;
+  const profit = income - expenses;
+  const margin = income !== 0 ? profit/income : null;
+  return {salary,trading,ads,tech,deposits,income,expenses,profit,margin};
+}
+
+function computeYear(year){
+  let salary=0,trading=0,ads=0,tech=0,deposits=0,income=0,expenses=0,profit=0;
+  YEAR_MONTHS[year].forEach(m=>{
+    const c = computeMonth(year, m);
+    salary+=c.salary; trading+=c.trading; ads+=c.ads; tech+=c.tech;
+    deposits+=c.deposits; income+=c.income; expenses+=c.expenses; profit+=c.profit;
+  });
+  const margin = income!==0 ? profit/income : null;
+  return {salary,trading,ads,tech,deposits,income,expenses,profit,margin};
+}
+
+function computeAll(){
+  let salary=0,trading=0,ads=0,tech=0,deposits=0,income=0,expenses=0,profit=0;
+  YEARS.forEach(y=>{
+    const c = computeYear(y);
+    salary+=c.salary; trading+=c.trading; ads+=c.ads; tech+=c.tech;
+    deposits+=c.deposits; income+=c.income; expenses+=c.expenses; profit+=c.profit;
+  });
+  const margin = income!==0 ? profit/income : null;
+  return {salary,trading,ads,tech,deposits,income,expenses,profit,margin};
+}
+
+function findBestMonth(){
+  let best = null;
+  YEARS.forEach(y=>{
+    YEAR_MONTHS[y].forEach(m=>{
+      const c = computeMonth(y,m);
+      if(c.income>0 && (!best || c.profit>best.profit)) best = {year:y, month:m, ...c};
+    });
+  });
+  return best;
+}
+
+function forecastYear(year){
+  const today = new Date();
+  const curYear = today.getFullYear(), curMonth = today.getMonth()+1;
+  const yc = computeYear(year);
+  if(year > curYear) return 0;
+  if(year < curYear) return yc.profit;
+  // current year: actual-so-far (all entered data) + projected remaining months at average pace
+  const monthsList = YEAR_MONTHS[year];
+  const activeMonths = monthsList.filter(m=>{ const c=computeMonth(year,m); return c.income>0; });
+  const avgProfit = activeMonths.length ? activeMonths.reduce((s,m)=>s+computeMonth(year,m).profit,0)/activeMonths.length : 0;
+  const remaining = monthsList.filter(m=>m>curMonth).length;
+  return yc.profit + avgProfit*remaining;
+}
+</script>
+<script>
+/* ======================= РЕНДЕРИНГ МЕСЯЦА ======================= */
+function monthCardHTML(year, month){
+  const c = computeMonth(year, month);
+  const mo = getMonth(year, month);
+  const dim = daysInMonth(year, month);
+  const profitClass = c.income===0 ? '' : (c.profit>=0 ? 'pos' : 'neg');
+  let daysHTML = '';
+  for(let d=1; d<=dim; d++){
+    const dow = DOW[(new Date(year, month-1, d).getDay()+6)%7];
+    const val = mo.days[d] !== undefined ? mo.days[d] : '';
+    daysHTML += `<div class="day-cell">
+      <div class="dn">${d} ${dow}</div>
+      <input type="number" step="0.01" inputmode="decimal" placeholder="0"
+        data-year="${year}" data-month="${month}" data-day="${d}" value="${val}">
+    </div>`;
+  }
+  return `
+  <div class="month-card" id="mc-${year}-${month}">
+    <div class="mc-top"><span class="mc-name">${MONTH_NAMES[month-1]} ${year}</span><span class="mc-margin" data-mm="${year}-${month}">${c.income?pct(c.margin):'—'}</span></div>
+    <div class="mc-profit ${profitClass}" data-mp="${year}-${month}">${c.income? fmt(c.profit) : '—'}</div>
+    <div class="mc-income" data-mi="${year}-${month}">доход ${fmt(c.income)} · расходы ${fmt(c.expenses)}</div>
+
+    <div class="mc-fields">
+      <div class="mc-field"><label>Оклад (работа), $</label>
+        <input type="number" step="0.01" data-year="${year}" data-month="${month}" data-field="salary" value="${mo.salary}"></div>
+      <div class="mc-field"><label>Трейдинг (крипто), $</label>
+        <input type="number" step="0.01" data-year="${year}" data-month="${month}" data-field="trading" value="${mo.trading}"></div>
+      <div class="mc-field"><label>Реклама, $</label>
+        <input type="number" step="0.01" data-year="${year}" data-month="${month}" data-field="ads" value="${mo.ads}"></div>
+      <div class="mc-field"><label>Тех. потери, $</label>
+        <input type="number" step="0.01" data-year="${year}" data-month="${month}" data-field="tech" value="${mo.tech}"></div>
+    </div>
+
+    <div class="mc-divider"></div>
+    <button type="button" class="days-toggle" data-toggle="${year}-${month}"><span class="arrow">▸</span> Платежи по дням</button>
+    <div class="days-grid" id="days-${year}-${month}">${daysHTML}</div>
+    <div class="days-sum" data-ds="${year}-${month}">Депозиты (сумма дней): <b>${fmt(c.deposits)}</b></div>
+
+    <div class="note-wrap">
+      <label>Заметка о месяце</label>
+      <textarea data-year="${year}" data-month="${month}" data-field="note" placeholder="Что повлияло на результат этого месяца…">${mo.note||''}</textarea>
+    </div>
+  </div>`;
+}
+
+function renderYearTab(year){
+  const grid = document.getElementById('months-'+year);
+  grid.innerHTML = YEAR_MONTHS[year].map(m=>monthCardHTML(year,m)).join('');
+}
+
+function yearSummaryHTML(year){
+  const c = computeYear(year);
+  const fc = forecastYear(year);
+  return `
+    <div class="card"><div class="label">ДОХОД ЗА ГОД</div><div class="big">${fmt(c.income)}</div><div class="sub">расходы ${fmt(c.expenses)}</div></div>
+    <div class="card"><div class="label">ЧИСТАЯ ПРИБЫЛЬ</div><div class="big">${fmt(c.profit)}</div><div class="sub">маржа ${pct(c.margin)}</div></div>
+    <div class="card"><div class="label">ПРОГНОЗ НА КОНЕЦ ГОДА</div><div class="big">${fmt(fc)}</div><div class="sub">факт + прогноз по текущему темпу</div></div>
+    <div class="card"><div class="label">ОКЛАД / ТРЕЙДИНГ / ДЕПОЗИТЫ</div><div class="big" style="font-size:15px;line-height:1.6;">${fmt(c.salary)} · ${fmt(c.trading)} · ${fmt(c.deposits)}</div><div class="sub">за год</div></div>
+  `;
+}
+
+function renderYearSummary(year){
+  document.getElementById('sum-'+year).innerHTML = yearSummaryHTML(year);
+}
+
+function updateMonthDisplay(year, month){
+  const c = computeMonth(year, month);
+  const profitEl = document.querySelector(`[data-mp="${year}-${month}"]`);
+  const marginEl = document.querySelector(`[data-mm="${year}-${month}"]`);
+  const incomeEl = document.querySelector(`[data-mi="${year}-${month}"]`);
+  const sumEl = document.querySelector(`[data-ds="${year}-${month}"]`);
+  if(profitEl){
+    profitEl.textContent = c.income? fmt(c.profit) : '—';
+    profitEl.className = 'mc-profit ' + (c.income===0 ? '' : (c.profit>=0?'pos':'neg'));
+  }
+  if(marginEl) marginEl.textContent = c.income?pct(c.margin):'—';
+  if(incomeEl) incomeEl.textContent = `доход ${fmt(c.income)} · расходы ${fmt(c.expenses)}`;
+  if(sumEl) sumEl.innerHTML = `Депозиты (сумма дней): <b>${fmt(c.deposits)}</b>`;
+}
+
+/* ======================= ГЛАВНАЯ ======================= */
+let profitChart = null;
+
+function renderMain(){
+  const all = computeAll();
+  const best = findBestMonth();
+  const curYear = new Date().getFullYear();
+  const fc = forecastYear(YEARS.includes(curYear) ? curYear : YEARS[YEARS.length-1]);
+
+  document.getElementById('mainStatRow').innerHTML = `
+    <div class="card"><div class="label">ДОХОД, ВСЕГО</div><div class="big">${fmt(all.income)}</div><div class="sub">2025—2029, все данные</div></div>
+    <div class="card"><div class="label">МАРЖА</div><div class="big">${pct(all.margin)}</div><div class="sub">чистая прибыль / доход</div></div>
+    <div class="card"><div class="label">ЛУЧШИЙ МЕСЯЦ</div><div class="big">${best?MONTH_NAMES[best.month-1]+' '+best.year:'—'}</div><div class="sub">${best?'прибыль '+fmt(best.profit):'нет данных'}</div></div>
+    <div class="card"><div class="label">ПРОГНОЗ ПРИБЫЛИ · КОНЕЦ ГОДА</div><div class="big">${fmt(fc)}</div><div class="sub">при текущем темпе</div></div>
+  `;
+
+  const roi = all.expenses>0 ? all.profit/all.expenses : null;
+  const activeMonthsCount = YEARS.reduce((s,y)=>s+YEAR_MONTHS[y].filter(m=>computeMonth(y,m).income>0).length,0);
+  const avgMonthly = activeMonthsCount ? all.profit/activeMonthsCount : 0;
+  document.getElementById('mainStrip').innerHTML = `
+    <div>Чистая прибыль: <b>${fmt(all.profit)}</b></div>
+    <div>Расходы, всего: <b>${fmt(all.expenses)}</b></div>
+    <div>ROI (прибыль / затраты): <b>${roi!==null?'×'+roi.toFixed(1):'—'}</b></div>
+    <div>Средняя прибыль в месяц: <b>${fmt(avgMonthly)}</b></div>
+  `;
+
+  // структура
+  const tradingNet = all.trading;
+  const segs = [
+    {label:'Депозиты (арбитраж)', val: all.deposits, color:'linear-gradient(90deg,#8a6a24,#f1dd9d)'},
+    {label:'Оклад', val: all.salary, color:'#8b8060'},
+    {label:'Расходы (реклама + тех.потери)', val: all.expenses, color:'var(--down)'},
+    {label:'Трейдинг, нетто', val: tradingNet, color:'#5a4a86'},
+  ];
+  const denom = segs.reduce((s,x)=>s+Math.abs(x.val),0) || 1;
+  document.getElementById('compBar').innerHTML = segs.map(s=>{
+    const w = Math.abs(s.val)/denom*100;
+    return `<div class="comp-seg" style="width:${w.toFixed(2)}%;background:${s.color};" title="${s.label} ${fmt(s.val)}"></div>`;
+  }).join('');
+  document.getElementById('compLegend').innerHTML = segs.map(s=>
+    `<span><i class="dot" style="background:${s.color.startsWith('linear')?'#f1dd9d':s.color}"></i>${s.label} — ${fmt(s.val)}</span>`
+  ).join('');
+
+  // накопления
+  const savCurEl = document.getElementById('savingsCurrent');
+  const savGoalEl = document.getElementById('savingsGoal');
+  if(document.activeElement !== savCurEl) savCurEl.value = STATE.savings.current;
+  if(document.activeElement !== savGoalEl) savGoalEl.value = STATE.savings.goal;
+  const goal = num(STATE.savings.goal), cur = num(STATE.savings.current);
+  const progress = goal>0 ? Math.min(cur/goal,1) : 0;
+  document.getElementById('savingsBar').style.width = (progress*100).toFixed(1)+'%';
+  document.getElementById('savingsPct').textContent = goal>0 ? pct(progress)+' пройдено' : 'укажите цель, чтобы увидеть прогресс';
+  document.getElementById('savingsLeft').textContent = fmt(Math.max(goal-cur,0));
+
+  // таблица по годам
+  let bestYear = null;
+  YEARS.forEach(y=>{ const c=computeYear(y); if(c.income>0 && (!bestYear || c.profit>bestYear.profit)) bestYear = {year:y, ...c}; });
+  document.getElementById('tableYears').innerHTML = YEARS.map(y=>{
+    const c = computeYear(y);
+    let cls = '';
+    if(c.income===0) cls='zero';
+    else if(bestYear && bestYear.year===y) cls='best';
+    return `<tr class="${cls}"><td>${y}</td><td>${fmt(c.income)}</td><td>${fmt(c.expenses)}</td><td>${fmt(c.profit)}</td><td>${pct(c.margin)}</td></tr>`;
+  }).join('') + `<tr class="total"><td>Итого</td><td>${fmt(all.income)}</td><td>${fmt(all.expenses)}</td><td>${fmt(all.profit)}</td><td>${pct(all.margin)}</td></tr>`;
+
+  renderChart();
+}
+
+function renderChart(){
+  const labels = [], profits = [];
+  YEARS.forEach(y=>{
+    YEAR_MONTHS[y].forEach(m=>{
+      const c = computeMonth(y,m);
+      labels.push(MONTH_NAMES[m-1].slice(0,3).toLowerCase()+' '+String(y).slice(2));
+      profits.push(Number(c.profit.toFixed(2)));
+    });
+  });
+  const colors = profits.map(v=> v<0 ? '#c67361' : 'rgba(202,160,77,.55)');
+  if(profitChart){
+    profitChart.data.labels = labels;
+    profitChart.data.datasets[0].data = profits;
+    profitChart.data.datasets[0].backgroundColor = colors;
+    profitChart.update('none');
+    return;
+  }
+  profitChart = new Chart(document.getElementById('profitChart'), {
+    type:'bar',
+    data:{ labels, datasets:[{ data:profits, backgroundColor:colors, borderRadius:4, maxBarThickness:22 }] },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false},
+        tooltip:{callbacks:{label:(ctx)=>'$'+ctx.parsed.y.toLocaleString('ru-RU',{maximumFractionDigits:0})}}},
+      scales:{
+        x:{grid:{display:false}, ticks:{color:'#a5967c', font:{size:9.5}, maxRotation:90, minRotation:60}},
+        y:{grid:{color:'rgba(255,255,255,.05)'}, ticks:{color:'#a5967c', font:{size:11}, callback:v=>'$'+v.toLocaleString('ru-RU')}}
+      }
+    }
+  });
+}
+
+function renderEverything(){
+  YEARS.forEach(y=>{ renderYearTab(y); renderYearSummary(y); });
+  renderMain();
+}
+</script>
+<script>
+/* ======================= СОБЫТИЯ ======================= */
+
+// поля месяца (оклад/трейдинг/реклама/тех.потери/заметка)
+document.addEventListener('input', (e)=>{
+  const t = e.target;
+  if(t.matches('[data-field][data-year][data-month]')){
+    const year = t.dataset.year, month = t.dataset.month, field = t.dataset.field;
+    const mo = getMonth(year, month);
+    mo[field] = field==='note' ? t.value : num(t.value);
+    saveState();
+    updateMonthDisplay(year, month);
+    renderYearSummary(year);
+    renderMain();
+  }
+});
+
+// платежи по дням
+document.addEventListener('input', (e)=>{
+  const t = e.target;
+  if(t.matches('[data-day][data-year][data-month]')){
+    const year = t.dataset.year, month = t.dataset.month, day = t.dataset.day;
+    const mo = getMonth(year, month);
+    const v = num(t.value);
+    if(v===0 && t.value.trim()===''){ delete mo.days[day]; }
+    else { mo.days[day] = v; }
+    saveState();
+    updateMonthDisplay(year, month);
+    renderYearSummary(year);
+    renderMain();
+  }
+});
+
+// накопления
+document.getElementById('savingsCurrent').addEventListener('input', (e)=>{
+  STATE.savings.current = num(e.target.value);
+  saveState();
+  renderMain();
+});
+document.getElementById('savingsGoal').addEventListener('input', (e)=>{
+  STATE.savings.goal = num(e.target.value);
+  saveState();
+  renderMain();
+});
+
+// раскрытие блока дней
+document.addEventListener('click', (e)=>{
+  const btn = e.target.closest('.days-toggle');
+  if(!btn) return;
+  const key = btn.dataset.toggle;
+  const grid = document.getElementById('days-'+key);
+  grid.classList.toggle('open');
+  btn.classList.toggle('open');
+});
+
+// вкладки
+document.getElementById('tabsNav').addEventListener('click', (e)=>{
+  const btn = e.target.closest('.tab-btn');
+  if(!btn) return;
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('tab-'+btn.dataset.tab).classList.add('active');
+  if(btn.dataset.tab==='main') renderChart();
+});
+
+// экспорт / импорт / сброс
+document.getElementById('btnExport').addEventListener('click', ()=>{
+  const blob = new Blob([JSON.stringify(STATE, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const d = new Date();
+  const stamp = d.toISOString().slice(0,10);
+  a.href = url; a.download = `financial-report-backup-${stamp}.json`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+});
+
+document.getElementById('btnImport').addEventListener('click', ()=>{
+  document.getElementById('importFile').click();
+});
+document.getElementById('importFile').addEventListener('change', (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try{
+      const parsed = JSON.parse(reader.result);
+      if(!parsed || !parsed.years) throw new Error('bad format');
+      STATE = parsed;
+      // fill any structural gaps (e.g. backup from an older version)
+      YEARS.forEach(y=>{
+        if(!STATE.years[y]) STATE.years[y] = {months:{}};
+        YEAR_MONTHS[y].forEach(m=>{
+          if(!STATE.years[y].months[m]) STATE.years[y].months[m] = defaultMonth();
+        });
+      });
+      if(!STATE.savings) STATE.savings = {current:0, goal:0};
+      saveState();
+      renderEverything();
+      alert('Резервная копия успешно загружена.');
+    }catch(err){
+      alert('Не удалось прочитать файл — убедитесь, что это JSON-копия, экспортированная из этого отчёта.');
+    }
+    e.target.value = '';
+  };
+  reader.readAsText(file, 'utf-8');
+});
+
+document.getElementById('btnReset').addEventListener('click', ()=>{
+  if(!confirm('Сбросить все данные к исходным значениям из документа? Все внесённые вами изменения будут потеряны (если вы не сохранили резервную копию).')) return;
+  STATE = JSON.parse(JSON.stringify(SEED));
+  saveState();
+  renderEverything();
+});
+
+/* ======================= СТАРТ ======================= */
+renderEverything();
+</script>
+</body>
+</html>
